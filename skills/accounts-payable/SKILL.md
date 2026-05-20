@@ -42,7 +42,7 @@ For immediate-pay purchases with no bill: `qbExpense` records the payment direct
 ## Workflow: Enter a Bill
 
 1. **Lookup** — `qbMasterData(detailedInfo="vendor", filter=vendorName)` for vendor ID. If filter returns >1 vendor with similar names, present options to user and confirm before proceeding — do not pick one.
-2. **Open-document check (separate call, no date window)** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)`. Run this BEFORE the history fetch. Outstanding status is not date-bounded; a date-scoped call would miss old open bills. If a matching outstanding bill is found, use `qbBillPayment` instead of entering a new bill — skip to step 6.
+2. **Open-document check (separate call, no date window)** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)`. Run this BEFORE the history fetch. Outstanding status is not date-bounded; a date-scoped call would miss old open bills. If a matching outstanding bill is found, do NOT create a new bill — switch to the **Pay a Bill** workflow below using the `billId`(s) already returned by this check; skip the "Find outstanding bills" fetch in that workflow since you already have them.
 3. **Fetch vendor history (account inference)** — `qbFetchTransactions(entityId=vendorId, entityType="Vendor", lookbackDays=365)`. Apply the CONSISTENCY RULE: use the inferred expense account ONLY IF all five criteria hold — (a) ≥ 3 prior transactions in last 365 days, (b) dominant account ≥ 70%, (c) no second account ≥ 20%, (d) current amount within 5× median of dominant-account transactions, (e) most recent dominant-account transaction < 180 days old. Fails any criterion → flag or confirm with user before proceeding.
 4. **Build bill** — Set `vendorId`, `txnDate`, `dueDate`, `lines` with inferred or confirmed account
 5. **Confirm** — Show: vendor, total, due date, expense categories
@@ -63,7 +63,7 @@ For immediate-pay purchases with no bill: `qbExpense` records the payment direct
 ## Workflow: Record an Expense (Immediate Payment)
 
 1. **Lookup** — `qbMasterData(detailedInfo="vendor", filter=vendorName)` for vendor ID; `qbMasterData(entityTypes=["account"])` for source account ID. If filter returns >1 vendor with similar names, present options to user and confirm before proceeding — do not pick one.
-2. **Open-document check (separate call, no date window)** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)`. Run this BEFORE the history fetch. If a matching outstanding bill exists, use `qbBillPayment` instead of `qbExpense` — skip to step 4. The EXPENSE TYPE GUARD hook enforces this; the skill must pre-satisfy it, not rely on the hook to catch it.
+2. **Open-document check (separate call, no date window)** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)`. Run this BEFORE the history fetch. If a matching outstanding bill exists, do NOT record as an Expense — switch to the **Pay a Bill** workflow using the `billId`(s) from this check's response. The EXPENSE TYPE GUARD hook enforces this; the skill must pre-satisfy it, not rely on the hook to catch it.
 3. **Fetch vendor history (account inference)** — `qbFetchTransactions(entityId=vendorId, entityType="Vendor", lookbackDays=365)`. Apply the CONSISTENCY RULE: use the inferred expense account ONLY IF all five criteria hold — (a) ≥ 3 prior transactions in last 365 days, (b) dominant account ≥ 70%, (c) no second account ≥ 20%, (d) current amount within 5× median of dominant-account transactions, (e) most recent dominant-account transaction < 180 days old. Fails any criterion → flag for review rather than recording.
 4. **Record** — `qbExpense` with `paymentType`, `accountId` (source), `vendorId`, `lines` (category accounts)
 5. **Attach** — `qbAttachFile` (entityType = "Purchase") — receipt from portal, local file, drive, or user upload; preferred for audit-ready books
@@ -101,7 +101,6 @@ When a vendor issues a credit or refund:
 - [ ] Open-document check run as a **separate call** with `outstandingOnly=true` and **no date window** — before history fetch or account inference
 - [ ] Consistency rule applied: all five criteria checked before using history-inferred expense account
 - [ ] Vendor history fetched — expense account inferred from past transactions, not guessed
-- [ ] Duplicate check — no existing bill or expense for same vendor+amount+date
 - [ ] Outstanding bills checked before recording an expense — `qbBillPayment` used when a match exists
 - [ ] Source account differs from category account on expense lines
 - [ ] User confirmation before recording

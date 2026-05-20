@@ -115,8 +115,7 @@ Select the correct tool based on the transaction type:
 |-----------|------|
 | Matched outstanding Bill | `qbBillPayment` |
 | Matched outstanding Invoice | `qbReceivePayment` |
-| Vendor expense, paid immediately | `qbExpense` |
-| Vendor bill, pay later | `qbBill` |
+| Vendor expense, paid immediately (no prior bill) | `qbExpense` |
 | Customer sale, paid immediately | `qbSalesReceipt` |
 | Customer sale, pay later | `qbInvoice` |
 | Non-customer deposit | `qbDeposit` |
