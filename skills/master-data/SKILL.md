@@ -38,7 +38,6 @@ Use this before any transaction to get valid IDs.
 1. **Call** — `qbMasterData(entityTypes=["account","vendor","customer","item","class"])` (request only what you need)
 2. **Filter** — Pass `filter` to narrow by name when the list is long
 3. **Disambiguate** — If multiple similar names exist, show the user the options and confirm which one before proceeding
-4. **Cache in memory** — `agentMemory` to store vendor→account and customer→item mappings for future use
 
 ## Workflow: Get Vendor or Customer Details
 
@@ -113,7 +112,6 @@ Classes add a segmentation dimension (department, location, project) to transact
 - [ ] For items: correct `itemType` and linked account confirmed
 - [ ] `syncToken` fetched immediately before any update
 - [ ] User confirmation shown before create or update
-- [ ] New entity IDs saved to `agentMemory` if used in recurring workflows
 
 ## Common Mistakes to Avoid
 

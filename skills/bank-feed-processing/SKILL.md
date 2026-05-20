@@ -1,11 +1,11 @@
 ---
 name: bank-feed-processing
-description: Process bank feed transactions — categorize, match, record, or flag for review using agent memory and confidence scoring. Use when the user mentions bank feed, bank transactions, categorize transactions, or auto-categorize.
+description: Process bank feed transactions — fetch raw bank data, look up vendor history in QuickBooks, record high-confidence transactions, and flag unknowns for CPA review. Use when the user mentions bank feed, bank transactions, categorize transactions, or auto-categorize.
 ---
 
 # Bank Feed Processing Skill
 
-Process unrecorded bank and credit card transactions from the connected bank feed. Categorize using agent memory, match to existing records, and flag uncertain items for CPA review.
+Process unrecorded bank and credit card transactions from the connected bank feed. Resolve each transaction against QuickBooks history to infer the correct account, record where confident, and flag the rest for CPA review.
 
 ## Trigger
 
@@ -13,28 +13,7 @@ Activate when the user wants to:
 - Process bank feed transactions
 - Categorize bank transactions
 - Review unrecorded transactions
-- Auto-categorize using learned patterns
 - Flag transactions for CPA review
-
-## Prerequisites
-
-### Bootstrap Check
-Before processing, verify: `agentMemory(operation="read", type="worklog")`
-- If client is NOT bootstrapped → warn: "This client hasn't been bootstrapped — most vendors are unknown. Run bootstrap first for better accuracy."
-- Without bootstrap, most transactions will be flagged (low confidence).
-
-## The Confidence Model
-
-Each bank feed transaction is evaluated against agent memory:
-
-| Upvotes | Confidence | Action |
-|---------|------------|--------|
-| 5+ | High | Record directly with top-voted account |
-| 3-4 | Medium | Record with note, mention categorization |
-| 1-2 | Low | Proceed with caution, consider flagging |
-| 0 | None | Flag for CPA review |
-
-Confidence comes from: bootstrap seeding (capped at 5), CPA approvals, and real-time upvotes after each successful recording.
 
 ## Workflow: Process Bank Feed
 
@@ -42,37 +21,30 @@ Confidence comes from: bootstrap seeding (capped at 5), CPA approvals, and real-
 ```
 bankFeed(action="fetch")
 ```
-Returns unprocessed transactions enriched with agent memory matches, document links, and suggested categories.
+Returns raw bank transactions. Check `alreadyFlagged=true` on each item — those are already in the CPA review queue, skip them entirely; do not flag again.
 
-### Step 2: Evaluate Each Transaction
+### Step 2: For Each Transaction — Resolve and Evaluate
 
-For each transaction:
-
-1. **Check enrichment** — Does the bank feed response include a memory match?
-2. **Check for existing records** — Before recording:
-   - Expenses/debits: `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)` → if outstanding bill exists, use `qbBillPayment` not `qbExpense`
-   - Deposits/credits: `qbFetchTransactions(transactionType="Invoice", outstandingOnly=true, entityId=customerId)` → if outstanding invoice exists, use `qbReceivePayment` not `qbDeposit`
-3. **Duplicate check** — `qbFetchTransactions` with vendor + date (±3 days) + amount
-4. **Anomaly check** — If amount is 3x outside the learned range for this vendor, flag regardless of confidence
+1. **Resolve vendor** — `qbMasterData(detailedInfo="vendor", filter=counterpartyName)` → get `vendorId`
+2. **Fetch QB history** — `qbFetchTransactions(entityId=vendorId, entityType="Vendor", startDate, endDate)` — this one call answers three questions:
+   - What account has this vendor been categorized to before? → use that account (consistent history = record)
+   - Is there an outstanding Bill? → use `qbBillPayment` not `qbExpense`
+   - Is there an outstanding Invoice? → use `qbReceivePayment` not `qbDeposit`
+   - Does an identical transaction already exist (same amount + date)? → duplicate, skip
+3. **No QB history** → `flagForReview` — do not guess
 
 ### Step 3: Record or Flag
 
-**High confidence (5+ upvotes):**
-1. `qbMasterData` — lookup IDs
-2. Record with the top-voted account mapping
-3. `agentMemory` — upvote the mapping
-4. `fetchWorkQueue(source="markRecorded")` — prevent re-processing
+**Consistent QB history:**
+1. `qbMasterData` — get source account ID (bank/CC)
+2. Record with the account from history using the correct tool
+3. `fetchWorkQueue(source="markRecorded")` — prevent re-processing
 
-**Medium confidence (3-4 upvotes):**
-1. Same as high, but include a note in the response about the categorization
-2. Upvote on success
-
-**Low/No confidence:**
+**No history or ambiguous:**
 1. `flagForReview` with specific `aiReasoning`:
-   - "New vendor not in memory"
-   - "Amount $X is 3x the usual $Y for this vendor"
-   - "Multiple possible categories: [list]"
-   - "Description is ambiguous: [description]"
+   - "Vendor not found in QuickBooks — no transaction history"
+   - "Multiple past accounts used for this vendor: [list]"
+   - "Description ambiguous: [description]"
 2. Include `suggestedCategory` when you have a reasonable guess
 
 ### Step 4: Batch When Possible
@@ -127,19 +99,19 @@ CPA-approved items from the review queue take priority:
 
 ## Safety Checklist
 
-- [ ] Bootstrap status checked before processing
-- [ ] Outstanding bills/invoices checked before recording expenses/deposits
-- [ ] Duplicate check run for every transaction
-- [ ] Anomaly check (3x outside learned range) applied
+- [ ] `alreadyFlagged` transactions skipped — not re-flagged
+- [ ] Vendor resolved via `qbMasterData` before fetching history
+- [ ] QB history fetched via `qbFetchTransactions` — account inferred, not guessed
+- [ ] Outstanding bills/invoices checked — correct tool selected
+- [ ] Duplicate check — identical transaction not already in QB
 - [ ] CPA-approved items processed first and categories preserved
-- [ ] Agent memory upvoted after each successful recording
 - [ ] Transactions marked as recorded to prevent re-processing
 
 ## Common Mistakes to Avoid
 
-- Recording an expense when an outstanding bill exists for the same vendor → use BillPayment
+- Re-flagging a transaction that already has `alreadyFlagged=true` — check this field first
+- Guessing an account without checking QB history — history is the source of truth
+- Recording an expense when an outstanding bill exists → use BillPayment
 - Recording a deposit when an outstanding invoice exists → use ReceivePayment
-- Skipping the bootstrap check → floods the review queue with flags
-- Not marking transactions as recorded → they appear again in the next fetch
+- Not marking transactions as recorded → they reappear in the next fetch
 - Overriding a CPA-approved category with a different agent guess
-- Ignoring amount anomalies just because the vendor has high upvotes

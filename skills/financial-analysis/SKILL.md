@@ -1,3 +1,8 @@
+---
+name: financial-analysis
+description: Generate financial reports, analyze business health, compute ratios, identify trends, and provide actionable insights. Use when the user mentions P&L, balance sheet, cash flow, financial ratios, margins, revenue trends, or financial health check.
+---
+
 # Financial Analysis Skill
 
 Expertise in generating financial reports, analyzing business health, computing ratios, identifying trends, and providing actionable CFO-level insights.
@@ -98,8 +103,6 @@ Structure the output:
 3. **Trends** — Improving / declining / stable with percentages
 4. **Risks** — Issues requiring attention
 5. **Recommendations** — Specific, actionable next steps
-
-Save key insights to `agentMemory` for longitudinal tracking.
 
 ## Presentation Rules
 

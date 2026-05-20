@@ -41,14 +41,13 @@ For immediate-pay purchases with no bill: `qbExpense` records the payment direct
 
 ## Workflow: Enter a Bill
 
-1. **Lookup** — `qbMasterData` for vendor ID and expense account IDs
-2. **Check memory** — `agentMemory` for vendor-to-account mapping and typical amounts
-3. **Duplicate check** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)` to verify no existing bill for same vendor+amount
-4. **Build bill** — Set `vendorId`, `txnDate`, `dueDate`, `lines` with account/amount
+1. **Lookup** — `qbMasterData(detailedInfo="vendor", filter=vendorName)` for vendor ID
+2. **Fetch vendor history** — `qbFetchTransactions(entityId=vendorId, entityType="Vendor", startDate, endDate)` — infer expense account from past bills; spot duplicates at same amount+date
+3. **Check outstanding** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)` — if matching bill exists, use `qbBillPayment` instead
+4. **Build bill** — Set `vendorId`, `txnDate`, `dueDate`, `lines` with inferred or confirmed account
 5. **Confirm** — Show: vendor, total, due date, expense categories
 6. **Record** — `qbBill`
 7. **Attach** — `qbAttachFile` (entityType = "Bill") — fetch from portal, local file, drive, or user upload; preferred for audit-ready books
-8. **Learn** — `agentMemory` upvote vendor mapping
 
 ## Workflow: Pay a Bill
 
@@ -63,9 +62,9 @@ For immediate-pay purchases with no bill: `qbExpense` records the payment direct
 
 ## Workflow: Record an Expense (Immediate Payment)
 
-1. **Check for existing bill** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)` — if a matching bill exists, use `qbBillPayment` instead
-2. **Lookup** — `qbMasterData` for vendor ID, source account (bank/CC), category account
-3. **Duplicate check** — `qbFetchTransactions(transactionType="Purchase", entityId=vendorId)` matching amount and date
+1. **Lookup** — `qbMasterData(detailedInfo="vendor", filter=vendorName)` for vendor ID; `qbMasterData(entityTypes=["account"])` for source account ID
+2. **Fetch vendor history** — `qbFetchTransactions(entityId=vendorId, entityType="Vendor", startDate, endDate)` — infer expense account from past purchases; spot duplicates at same amount+date
+3. **Check outstanding bills** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)` — if a matching bill exists, use `qbBillPayment` instead
 4. **Record** — `qbExpense` with `paymentType`, `accountId` (source), `vendorId`, `lines` (category accounts)
 5. **Attach** — `qbAttachFile` (entityType = "Purchase") — receipt from portal, local file, drive, or user upload; preferred for audit-ready books
 6. **Rule** — Source account (where money comes from) must differ from line accountId (what it was spent on)
@@ -99,11 +98,11 @@ When a vendor issues a credit or refund:
 ## Safety Checklist
 
 - [ ] `qbMasterData` lookup completed — valid vendor and account IDs
+- [ ] Vendor history fetched — expense account inferred from past transactions
 - [ ] Duplicate check — no existing bill or expense for same vendor+amount+date
-- [ ] Check for outstanding bills before recording an expense
+- [ ] Outstanding bills checked before recording an expense
 - [ ] Source account differs from category account on expense lines
 - [ ] User confirmation before recording
-- [ ] Agent memory updated after successful recording
 
 ## Common Mistakes to Avoid
 

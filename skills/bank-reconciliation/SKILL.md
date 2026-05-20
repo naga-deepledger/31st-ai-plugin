@@ -59,10 +59,10 @@ Run this first to find what needs fixing before touching the reconciliation scre
 
 1. **Fetch** — `bankFeed(action="fetch", accountId?, sinceDate?)`
 2. **For each transaction**:
-   - Check `agentMemory` for vendor/category mapping
-   - **Known vendor + category** → record using the correct tool (see table below)
-   - **Unknown or ambiguous** → `flagForReview` with reasoning
-3. **Duplicate check before recording** — `qbFetchTransactions` (report scan, same accountId + date range) to confirm it isn't already in QB
+   - `qbMasterData(detailedInfo="vendor", filter=counterpartyName)` → get vendor ID
+   - `qbFetchTransactions(entityId=vendorId, entityType="Vendor", startDate, endDate)` → infer account from QB history; confirm no duplicate
+   - **Consistent QB history** → record using the correct tool (see table below)
+   - **No QB history** → `flagForReview` with reasoning
 
 ### Bank Line → Recording Tool
 
@@ -86,7 +86,7 @@ Run this first to find what needs fixing before touching the reconciliation scre
 ## Workflow: Resolve Uncategorized Flags
 
 1. **Fetch transaction details** — `qbFetchTransactions` report scan (accountId + dates) to find entries in "Ask My Accountant" or "Uncategorized"
-2. **Check memory** — `agentMemory` for vendor-to-account mapping
+2. **Fetch vendor history** — `qbFetchTransactions(entityId=vendorId, entityType="Vendor", startDate, endDate)` — consistent past category means re-categorize to that account
 3. **Re-categorize if confident** — update with the correct account
 4. **Flag if uncertain** — `flagForReview` with `aiReasoning` explaining what's unknown
 
