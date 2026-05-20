@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "DUPLICATE RESULT GUARD \u2014 You are a pre-tool-call validator. Review the result of the most recent qbFetchTransactions call in the conversation.\n\nIf qbFetchTransactions returned ANY transactions that match the vendor/customer, date (within 3 days), and amount (within 10%) of the transaction about to be created, you MUST block and show potential duplicates.\n\nIf potential duplicates are found, respond with:\n   {\"decision\": \"block\", \"reason\": \"DUPLICATE RISK: Your duplicate check via qbFetchTransactions returned potential matches. You MUST show these matches to the user and get explicit confirmation that this is NOT a duplicate before proceeding. List each potential match with: date, amount, vendor/customer, and memo. Ask: 'I found existing transactions that may be duplicates. Should I proceed?'\"}\n\nIf no duplicates match, respond with:\n   {\"decision\": \"allow\"}"
+            "prompt": "DUPLICATE RESULT GUARD \u2014 You are a pre-tool-call validator. Review the result of the most recent qbFetchTransactions call in the conversation.\n\nA potential duplicate requires ALL THREE of: (1) same vendor/customer, (2) same date (within 3 days), (3) same amount (within 10%) AND either matching memo text OR matching bankTransactionId (if available). Identical recurring charges on different dates are NOT duplicates \u2014 a $15.99 Netflix charge on Feb 1 does not duplicate a $15.99 Netflix charge on Mar 1.\n\n1. SAME AMOUNT + SAME DATE RANGE: amount within 10% and date within 3 days.\n2. SAME MEMO OR SAME BANK TRANSACTION ID: memo strings match (partial ok) OR bankTransactionId values are identical.\n   Both conditions (1 AND 2) must be true to constitute a duplicate.\n\nIf a true duplicate is found, respond with:\n   {\"decision\": \"block\", \"reason\": \"DUPLICATE RISK: qbFetchTransactions returned a transaction matching on amount, date, and memo/bankTransactionId. List the match (date, amount, vendor, memo) and ask the user to confirm this is not a duplicate before proceeding.\"}\n\nIf no match meets all criteria, respond with:\n   {\"decision\": \"allow\"}"
           }
         ]
       },
@@ -88,6 +88,42 @@
           {
             "type": "prompt",
             "prompt": "BATCH SAFETY GUARD \u2014 You are a pre-tool-call validator. Three checks before allowing a batch operation:\n\n1. REQUIRE MASTER DATA: qbMasterData must have been called to verify vendor/customer and account IDs. If not, respond with:\n   {\"decision\": \"block\", \"reason\": \"SAFETY VIOLATION: You must call qbMasterData to verify vendor/customer and account IDs before running a batch operation. Batch errors affect multiple transactions at once.\"}\n\n2. BATCH TYPE HOMOGENEITY: All operations in the batch must be the same transaction type. Mixed-type batches are not supported. If mixed types are found, respond with:\n   {\"decision\": \"block\", \"reason\": \"BATCH TYPE MIX: The batch contains mixed transaction types. All items in a single qbBatch call must be the same type (all Expenses, all Bills, etc.). Split into separate batches by type.\"}\n\n3. REQUIRE DUPLICATE CHECK: qbFetchTransactions must have been called with a date range covering all batch items. If not, respond with:\n   {\"decision\": \"block\", \"reason\": \"SAFETY VIOLATION: You must call qbFetchTransactions with a date range covering all items in the batch to check for duplicates before submitting. Batch duplicates are especially costly to clean up.\"}\n\nIf all three pass, respond with:\n   {\"decision\": \"allow\"}"
+          }
+        ]
+      },
+      {
+        "matcher": "qbExpense|qbBill|qbInvoice|qbSalesReceipt|qbDeposit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "MATERIALITY GUARD \u2014 You are a pre-tool-call validator. Guard against auto-recording unusually large transactions relative to vendor history.\n\n1. HISTORY CHECK: Was qbFetchTransactions called for this vendor/customer earlier in this conversation? If yes, compute the median transaction amount from those results.\n2. AMOUNT vs. MEDIAN: If the current transaction amount is MORE than 5\u00d7 that median, BLOCK.\n   If no history was fetched for this vendor, or the amount is within 5\u00d7 the median, ALLOW.\n\nIf materiality threshold is exceeded, respond with:\n   {\"decision\": \"block\", \"reason\": \"MATERIALITY: Amount $X is more than 5x the median $Y seen for this vendor. Flag for CPA review rather than auto-recording. Call flagForReview with aiReasoning including the amount and the historical range.\"}\n\nIf within range or no history available, respond with:\n   {\"decision\": \"allow\"}"
+          }
+        ]
+      },
+      {
+        "matcher": "qbExpense|qbBill|qbBillPayment|qbInvoice|qbSalesReceipt|qbReceivePayment|qbDeposit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "CONSISTENCY RULE GUARD \u2014 You are a pre-tool-call validator. Enforce that any account inferred from transaction history satisfies all 5 consistency criteria before use.\n\nThe CONSISTENCY RULE requires ALL of:\n  (a) \u2265 3 prior transactions in the last 365 days,\n  (b) dominant account \u2265 70% of those transactions,\n  (c) no second account \u2265 20% of those transactions,\n  (d) current amount within 5\u00d7 the median of dominant-account transactions,\n  (e) most recent dominant-account transaction < 180 days old.\n\nCheck the conversation history:\n- If the account in this tool call was inferred from qbFetchTransactions history (no outstanding Bill/Invoice match routed the decision), verify that all 5 criteria were explicitly evaluated and passed.\n- If an open Bill or Invoice match routed the tool choice (qbBillPayment or qbReceivePayment), the account is already encoded \u2014 ALLOW.\n- If the agent is using a history-inferred account but has NOT confirmed all 5 criteria, BLOCK.\n\nIf criteria were not confirmed, respond with:\n   {\"decision\": \"block\", \"reason\": \"CONSISTENCY RULE: Before using a history-inferred account, verify all 5 criteria: \u22653 prior txns (365d), dominant account \u226570%, no second account \u226520%, amount within 5\u00d7 median, most recent txn <180d old. If any criterion fails, call flagForReview instead.\"}\n\nIf criteria were evaluated and passed, or account came from an open-document match, respond with:\n   {\"decision\": \"allow\"}"
+          }
+        ]
+      },
+      {
+        "matcher": "qbExpense|qbBill|qbBillPayment|qbInvoice|qbSalesReceipt|qbReceivePayment|qbDeposit|qbJournalEntry",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "CURRENCY GUARD \u2014 You are a pre-tool-call validator. Guard against silent cross-currency mis-postings.\n\n1. CURRENCY MATCH: Determine the currency of the source bank or credit card account (from the tool call parameters or conversation context) and the currency of the transaction amount.\n2. If they differ AND no exchangeRate or currency conversion information is present in the tool call parameters or conversation, BLOCK.\n3. If currencies match, or an exchangeRate is explicitly provided, ALLOW.\n\nIf currency mismatch without FX handling, respond with:\n   {\"decision\": \"block\", \"reason\": \"CURRENCY MISMATCH: The transaction currency does not match the source account currency and no exchange rate was provided. Provide an exchangeRate or use a journal entry with explicit currency conversion lines. Do not auto-record cross-currency transactions without FX handling.\"}\n\nIf currencies match or exchange rate is present, respond with:\n   {\"decision\": \"allow\"}"
+          }
+        ]
+      },
+      {
+        "matcher": "qbExpense|qbBill|qbBillPayment|qbInvoice|qbSalesReceipt|qbReceivePayment|qbDeposit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "MULTI-VENDOR AMBIGUITY GUARD \u2014 You are a pre-tool-call validator. Prevent picking one entity when qbMasterData returned multiple candidates.\n\n1. MASTER DATA RESULTS: Check whether qbMasterData was called in this conversation and what it returned for the counterparty name being used.\n2. MULTIPLE MATCHES: If qbMasterData returned MORE THAN ONE vendor or customer matching the counterparty name, BLOCK \u2014 do not pick one.\n3. SINGLE MATCH or NO AMBIGUITY: If exactly one match was returned, ALLOW.\n\nIf multiple vendors/customers matched, respond with:\n   {\"decision\": \"block\", \"reason\": \"MULTI-VENDOR MATCH: qbMasterData returned multiple vendors matching this name. Do NOT pick one \u2014 call flagForReview with the candidate list so the CPA can confirm which entity applies.\"}\n\nIf exactly one match was returned, respond with:\n   {\"decision\": \"allow\"}"
           }
         ]
       },
