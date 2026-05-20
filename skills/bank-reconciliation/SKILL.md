@@ -92,7 +92,7 @@ Run this first to find what needs fixing before touching the reconciliation scre
 
 ## Workflow: Complete Reconciliation in QB Online (Browser)
 
-Once the health score is clean and all bank feed items are recorded:
+Once the health score is clean and all bank feed items are recorded, activate the **computer-use** skill to operate the QB reconciliation UI:
 
 1. **Open QB Online** — navigate to Bookkeeping → Reconcile in the browser
 2. **Select account** — choose the Bank or Credit Card account to reconcile

@@ -1,6 +1,6 @@
 # /reconcile
 
-Reconcile a bank or credit card account — clean up the account, record missing transactions, then complete the reconciliation in QuickBooks Online.
+Prepare an account for reconciliation using MCP tools (health check, bank feed, duplicates), then finalize in QuickBooks Online using the **computer-use** skill.
 
 ## Usage
 ```
@@ -46,7 +46,7 @@ Run `/bank-feed` to record missing transactions for the period. All unrecorded b
 
 ### Phase 2: Reconcile in QuickBooks Online (Browser)
 
-> This phase requires browser access to QuickBooks Online. Claude can guide you through the steps but cannot click or interact with the QB UI directly.
+> This phase requires browser access to QuickBooks Online. Use the **computer-use** skill — Claude will open QB Online and interact with the reconciliation UI directly on your behalf.
 
 Once the account health score is clean and all bank feed items are recorded:
 

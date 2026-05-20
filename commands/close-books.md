@@ -1,6 +1,6 @@
 # /close-books
 
-Run the month-end close workflow — reconciliation, accruals, depreciation, and final review.
+Run the month-end close workflow — account health checks, accruals, depreciation, and final review.
 
 ## Usage
 ```
@@ -25,7 +25,7 @@ closeRun(operation="start", period="2026-03", periodLabel="March 2026")
 
 #### After each step — update incrementally so the portal shows live progress:
 ```
-closeRun(operation="updateStep", step={id: "reconciliation", label: "Reconcile All Accounts", status: "passed", ...})
+closeRun(operation="updateStep", step={id: "reconciliation", label: "Account Health Check", status: "passed", ...})
 closeRun(operation="updateChecks", checks=[{id: 7, label: "Bank Reconciliation", status: "pass", value: "95/100", ...}])
 closeRun(operation="addEntries", adjustingEntries=[{type: "depreciation", description: "...", ...}])
 closeRun(operation="setFinancials", financials={revenue: 85000, expenses: 62000, ...})
@@ -43,7 +43,7 @@ The `result` column uses this schema:
   "steps": [
     {
       "id": "reconciliation",
-      "label": "Reconcile All Accounts",
+      "label": "Account Health Check",
       "status": "passed|warning|failed|running|pending|skipped",
       "started_at": "ISO timestamp",
       "completed_at": "ISO timestamp",
@@ -99,7 +99,7 @@ The `result` column uses this schema:
 
 Note: The `complete` operation sets status to `needs_review` — only a CPA can close in the portal.
 
-### Step 1: Reconcile All Accounts
+### Step 1: Account Health Check
 - `qbMasterData(entityType="Account")` → get all Bank and Credit Card accounts
 - `qbAccountHealth` on each account for the closing month
 - Report health scores. Target: >= 90 on all accounts

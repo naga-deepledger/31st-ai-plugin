@@ -20,7 +20,7 @@
       "homepage": "https://31st.ai",
       "repository": "https://github.com/naga-deepledger/31st-ai-plugin",
       "license": "MIT",
-      "keywords": ["quickbooks", "bookkeeping", "accounting", "finance", "ai-cfo", "bank-reconciliation"]
+      "keywords": ["quickbooks", "bookkeeping", "accounting", "finance", "ai-cfo", "month-end-close"]
     }
   ]
 }

@@ -54,12 +54,11 @@ The plugin connects to the 31st.ai MCP server using HTTP Streamable transport. A
 | `/close-books [month]` | Month-end close workflow |
 | `/health-check [--detailed]` | Financial health scorecard |
 | `/loop` | Autonomous bookkeeping cycle |
-| `/budget [period]` | Budget vs actuals comparison |
 | `/recurring [list\|create\|pause]` | Manage recurring transactions |
 
 ## Agents
 
-- **Accountant** — Day-to-day bookkeeping: transaction recording, bank feed processing, reconciliation, month-end close
+- **Accountant** — Day-to-day bookkeeping: transaction recording, bank feed processing, AP/AR management, month-end close
 - **CFO** — Strategic analysis: financial reports, ratio analysis, trend identification, health monitoring
 
 ## Safety Model
