@@ -32,9 +32,9 @@ For immediate-pay sales with no invoice: `qbSalesReceipt` → Undeposited Funds 
 
 ## Workflow: Create an Invoice
 
-1. **Lookup** — `qbMasterData` for customer ID, item/service IDs, sales terms
-2. **Fetch customer history** — `qbFetchTransactions(entityId=customerId, entityType="Customer", startDate, endDate)` — infer typical items, amounts, and terms from past invoices
-3. **Duplicate check** — `qbFetchTransactions(transactionType="Invoice", outstandingOnly=true, entityId=customerId)` to verify no duplicate
+1. **Lookup** — `qbMasterData` for customer ID, item/service IDs, sales terms. If filter returns >1 customer with similar names, present options to user and confirm before proceeding — do not pick one.
+2. **Open-document check (separate call, no date window)** — `qbFetchTransactions(transactionType="Invoice", outstandingOnly=true, entityId=customerId)`. Run this BEFORE the history fetch. Outstanding status is not date-bounded; a date-scoped history call would miss existing open invoices. If a matching outstanding invoice is found, confirm with the user whether a new invoice is intended or the existing one should be updated/applied — do not silently create a duplicate.
+3. **Fetch customer history (account / item inference)** — `qbFetchTransactions(entityId=customerId, entityType="Customer", lookbackDays=365)` — infer typical items, amounts, and terms from past invoices. Apply the CONSISTENCY RULE before auto-populating line items: use inferred items/terms ONLY IF (a) ≥ 3 prior invoices in last 365 days, (b) dominant item/terms ≥ 70%, (c) no second item/terms ≥ 20%, (d) current amount within 5× median, (e) most recent < 180 days old. Otherwise confirm with user before building the invoice.
 4. **Build invoice** — Set `customerId`, `txnDate`, `dueDate`, `lines` with items/amounts
 5. **Confirm** — Show the user: customer, total, due date, line items
 6. **Record** — `qbInvoice` to create
@@ -88,10 +88,11 @@ When cash must be returned to the customer:
 
 ## Safety Checklist
 
-- [ ] `qbMasterData` lookup completed — valid customer and item IDs
-- [ ] Customer history fetched — typical items and terms inferred from past invoices
-- [ ] Duplicate check via `qbFetchTransactions` — no matching open invoice
-- [ ] Check for existing open invoices before creating new ones for same customer/service
+- [ ] `qbMasterData` lookup completed — valid customer and item IDs; if >1 match on filter, user confirmed which customer
+- [ ] Open-document check run as a **separate call** with `outstandingOnly=true` and **no date window** — before history fetch or item inference
+- [ ] Consistency rule applied: all five criteria checked before auto-populating items/terms from customer history
+- [ ] Customer history fetched — typical items and terms inferred from past invoices, not guessed
+- [ ] Duplicate check via `qbFetchTransactions` — no matching open invoice created without user confirmation
 - [ ] Verify payment amount matches or is less than outstanding balance
 - [ ] User confirmation before recording
 

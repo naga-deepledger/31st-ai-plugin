@@ -55,14 +55,17 @@ Run this first to find what needs fixing before touching the reconciliation scre
 
 ## Workflow: Process Bank Feed Transactions
 
-`bankFeed` returns transactions that exist at the bank but are **not yet recorded in QB**. Record each one before reconciling.
+`bankFeed` returns transactions that exist at the bank but are **not yet recorded in QB**. Record each one before reconciling. Follow the v2 framework steps for each transaction.
 
-1. **Fetch** — `bankFeed(action="fetch", accountId?, sinceDate?)`
-2. **For each transaction**:
-   - `qbMasterData(detailedInfo="vendor", filter=counterpartyName)` → get vendor ID
-   - `qbFetchTransactions(entityId=vendorId, entityType="Vendor", startDate, endDate)` → infer account from QB history; confirm no duplicate
-   - **Consistent QB history** → record using the correct tool (see table below)
-   - **No QB history** → `flagForReview` with reasoning
+1. **Fetch** — `bankFeed(action="fetch", accountId?, sinceDate?)`. Skip items with `alreadyFlagged=true`.
+2. **For each transaction — Step 1: Resolve entity** — `qbMasterData(detailedInfo="vendor", filter=counterpartyName)` → get vendor ID.
+   - 0 matches → new vendor; flag for review (do not infer account).
+   - 1 match → use that ID; continue.
+   - >1 matches → `flagForReview` with the full candidate list; do NOT pick one.
+3. **For each transaction — Step 2: Open-document check (separate call, no date window)** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)` for vendor flows; `qbFetchTransactions(transactionType="Invoice", outstandingOnly=true, entityId=customerId)` for customer flows. Do NOT combine with the history fetch — outstanding status is not date-scoped. If a match is found → use `qbBillPayment` / `qbReceivePayment`; skip history inference.
+4. **For each transaction — Step 3: Account inference (bounded history)** — `qbFetchTransactions(entityId=vendorId, entityType="Vendor", lookbackDays=365)`. Apply the CONSISTENCY RULE: use the dominant account ONLY IF (a) ≥ 3 prior transactions in last 365 days, (b) dominant account ≥ 70%, (c) no second account ≥ 20%, (d) current amount within 5× median, (e) most recent dominant-account transaction < 180 days old. Any criterion fails → `flagForReview`.
+5. **Record or flag** — Consistent QB history → record using the correct tool (see table below). Inconsistent or insufficient history → `flagForReview` with vendor name, history summary, bank memo verbatim, and amount/date.
+6. **Mark recorded** — `fetchWorkQueue(source="markRecorded", ...)` after every transaction — whether recorded or flagged — to prevent re-processing.
 
 ### Bank Line → Recording Tool
 
@@ -86,9 +89,11 @@ Run this first to find what needs fixing before touching the reconciliation scre
 ## Workflow: Resolve Uncategorized Flags
 
 1. **Fetch transaction details** — `qbFetchTransactions` report scan (accountId + dates) to find entries in "Ask My Accountant" or "Uncategorized"
-2. **Fetch vendor history** — `qbFetchTransactions(entityId=vendorId, entityType="Vendor", startDate, endDate)` — consistent past category means re-categorize to that account
-3. **Re-categorize if confident** — update with the correct account
-4. **Flag if uncertain** — `flagForReview` with `aiReasoning` explaining what's unknown
+2. **Resolve entity** — `qbMasterData(detailedInfo="vendor", filter=counterpartyName)` — if >1 match, present options; do not pick.
+3. **Open-document check (separate call, no date window)** — `qbFetchTransactions(transactionType="Bill", outstandingOnly=true, entityId=vendorId)` — before inferring account from history; if a match exists, the document already encodes the correct account.
+4. **Fetch vendor history** — `qbFetchTransactions(entityId=vendorId, entityType="Vendor", lookbackDays=365)`. Apply the CONSISTENCY RULE before re-categorizing: use a history-inferred account ONLY IF (a) ≥ 3 prior transactions in last 365 days, (b) dominant account ≥ 70%, (c) no second account ≥ 20%, (d) current amount within 5× median, (e) most recent dominant-account transaction < 180 days old. This prevents re-categorization based on a split or thin history (e.g., an Amazon entry with mixed office/equipment history).
+5. **Re-categorize if consistent** — update with the correct account when the consistency rule passes.
+6. **Flag if uncertain** — `flagForReview` with `aiReasoning` including vendor name, history split, bank memo verbatim, and amount/date. Include `suggestedCategory` if a static keyword hint applies.
 
 ## Workflow: Complete Reconciliation in QB Online (Browser)
 
@@ -112,6 +117,9 @@ Once the health score is clean and all bank feed items are recorded, activate th
 
 - [ ] `qbAccountHealth` run and flags resolved before opening reconciliation screen
 - [ ] Bank feed processed — no unrecorded transactions remaining for the period
+- [ ] Entity resolved via `qbMasterData` — 0 matches → flag, 1 match → continue, >1 matches → flag with candidate list
+- [ ] Open-document check run as a **separate call** with `outstandingOnly=true` and **no date window** — before account inference, for both bank-feed processing and uncategorized-flag resolution
+- [ ] Consistency rule applied before any history-based re-categorization — all five criteria checked
 - [ ] Duplicate check completed before recording any bank feed item
 - [ ] Voidable transaction type confirmed before calling `qbVoidTransaction`
 - [ ] Uncategorized items resolved or flagged — none left in "Ask My Accountant"

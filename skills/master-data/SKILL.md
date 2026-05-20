@@ -37,7 +37,7 @@ Use this before any transaction to get valid IDs.
 
 1. **Call** — `qbMasterData(entityTypes=["account","vendor","customer","item","class"])` (request only what you need)
 2. **Filter** — Pass `filter` to narrow by name when the list is long
-3. **Disambiguate** — If multiple similar names exist, show the user the options and confirm which one before proceeding
+3. **Disambiguate — multi-match rule (critical)** — If `filter` returns more than one vendor or customer with similar names (e.g., "Amazon", "Amazon Web Services", "Amazon Capital Services" — all real QB vendors), do NOT pick one. Present the full candidate list to the user or call `flagForReview` with the list in `aiReasoning`. Picking the wrong entity corrupts AP/AR reports, the audit trail, and the historical precedent the consistency rule relies on. This rule applies in all contexts — interactive user flows (present options) and batch/async flows (`flagForReview` with candidate list).
 
 ## Workflow: Get Vendor or Customer Details
 
@@ -107,6 +107,7 @@ Classes add a segmentation dimension (department, location, project) to transact
 ## Safety Checklist
 
 - [ ] Duplicate check completed before creating any entity
+- [ ] Multi-match disambiguation: if `filter` returns >1 vendor/customer, options presented to user (interactive) or `flagForReview` called with candidate list (batch) — never auto-selected
 - [ ] For accounts: `accountType` confirmed with user — cannot be changed after creation
 - [ ] For 1099 vendors: `taxIdentifier` collected and `vendor1099=true` set
 - [ ] For items: correct `itemType` and linked account confirmed
