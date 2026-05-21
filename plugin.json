@@ -1,6 +1,6 @@
 {
   "name": "31st-ai",
-  "version": "1.4.0",
-  "description": "QuickBooks Online bookkeeping skills and safety hooks — domain expertise and pre-write guards for AI-assisted accounting via the 31st.ai MCP server",
+  "version": "2.0.0",
+  "description": "31st.ai \u2014 full-scale AI bookkeeper for QuickBooks Online. 10 skills covering the complete accounting lifecycle (AP, AR, bank feed, bank reconciliation, journal entries, month-end close, master data, financial analysis, client onboarding, computer use). 15 pre-execution safety hooks prevent every class of bookkeeping error before writes reach QuickBooks.",
   "hooks": "./hooks/hooks.json"
 }

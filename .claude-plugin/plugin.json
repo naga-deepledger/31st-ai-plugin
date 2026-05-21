@@ -1,7 +1,7 @@
 {
   "name": "31st-ai",
-  "version": "1.3.0",
-  "description": "Autonomous AI bookkeeper — records transactions, processes bank feeds, generates financial reports, and self-improves through pattern learning. QuickBooks Online integration via MCP.",
+  "version": "2.0.0",
+  "description": "Autonomous AI bookkeeper \u2014 full accounting lifecycle via 10 skills and 15 safety hooks. QuickBooks Online integration: AP, AR, bank feeds, month-end close, financial analysis and more.",
   "author": {
     "name": "31st.ai",
     "url": "https://31st.ai"
@@ -9,5 +9,11 @@
   "homepage": "https://31st.ai",
   "repository": "https://github.com/naga-deepledger/31st-ai-plugin",
   "license": "MIT",
-  "keywords": ["quickbooks", "bookkeeping", "accounting", "finance", "ai-cfo"]
+  "keywords": [
+    "quickbooks",
+    "bookkeeping",
+    "accounting",
+    "finance",
+    "ai-cfo"
+  ]
 }

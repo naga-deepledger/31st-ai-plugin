@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "31st-ai",
-      "description": "QuickBooks Online bookkeeping skills and safety hooks. Domain expertise for recording transactions, processing bank feeds, and month-end close — plus 11 pre-write safety guards that prevent common bookkeeping errors.",
-      "version": "1.4.0",
+      "description": "Full-scale AI bookkeeper: AP, AR, bank feed processing, bank reconciliation, journal entries, month-end close, financial analysis, master data, client onboarding, and computer use \u2014 10 skills with 15 pre-execution safety hooks. Keeps QuickBooks books audit-ready while the AI handles the accounting lifecycle end-to-end.",
+      "version": "2.0.0",
       "author": {
         "name": "31st.ai",
         "email": "support@31st.ai"
@@ -20,7 +20,15 @@
       "homepage": "https://31st.ai",
       "repository": "https://github.com/naga-deepledger/31st-ai-plugin",
       "license": "MIT",
-      "keywords": ["quickbooks", "bookkeeping", "accounting", "finance", "skills", "hooks", "month-end-close"]
+      "keywords": [
+        "quickbooks",
+        "bookkeeping",
+        "accounting",
+        "finance",
+        "skills",
+        "hooks",
+        "month-end-close"
+      ]
     }
   ]
 }
